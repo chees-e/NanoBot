@@ -1,0 +1,17 @@
+{
+  "name": "jsimplementation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "nano.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^13.1.0",
+    "dotenv": "^10.0.0",
+    "npm": "^7.21.1"
+  }
+}
