@@ -105,26 +105,57 @@ jimp.read("https://dhp5ttvnehc80.cloudfront.net/58b46dde00997b6a7697ffd87c140420
 */
 
 //milisec
-function delay(sec) {
-    return new Promise(resolve => setTimeout(resolve, sec))
+// function delay(sec) {
+//     return new Promise(resolve => setTimeout(resolve, sec))
+// }
+
+// msg = ""
+// const {Client, Intents} = require("discord.js");
+// const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS]});
+
+// client.once("ready", () => {
+//     console.log("Ready!")
+// })
+
+// client.on("messageCreate", async message => {
+//     let x = 0, y = 0;
+//     y++;
+//     if (message.author.id == "226588531772882945") {
+//         msg = message.content;
+//         await delay(10000);
+//         message.channel.send(x + "," + y);
+//     }
+// })
+
+// client.login("NDM1MzIxMzg1MDk1NzkwNjEy.YJNUNQ.apmeVf7XsA5DYLuSr3eRXNmc638");
+let carx = [
+    [270, 328, 387, 445, 503],
+    [244, 305, 365, 426, 486, 547],
+    [260, 323, 387, 450, 513],
+    [231, 297, 363, 428, 494, 560],
+    [249, 318, 387, 455, 524],
+    [215, 287, 359, 432, 504, 576],
+    [235, 311, 387, 462, 538],
+    [196, 276, 356, 435, 515, 595],
+    [218, 302, 387, 471, 555],
+    [172, 262, 351, 440, 529, 619],
+    [197, 292, 387, 481, 576],
+    [142, 244, 345, 446, 547, 649],
+    [169, 278, 387, 495, 604],
+    [104, 220, 337, 454, 571, 688],
+    [133, 260, 387, 513, 640],
+];
+
+for (let i = 0; i < carx.length; i++) {
+    for (let j = 0; j < carx[i].length-1; j++) {
+        console.log(carx[i][j+1]- carx[i][j]);
+    }
+    console.log("\n")
+
 }
 
-msg = ""
-const {Client, Intents} = require("discord.js");
-const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MESSAGE_REACTIONS]});
 
-client.once("ready", () => {
-    console.log("Ready!")
-})
 
-client.on("messageCreate", async message => {
-    let x = 0, y = 0;
-    y++;
-    if (message.author.id == "226588531772882945") {
-        msg = message.content;
-        await delay(10000);
-        message.channel.send(x + "," + y);
-    }
-})
 
-client.login("NDM1MzIxMzg1MDk1NzkwNjEy.YJNUNQ.apmeVf7XsA5DYLuSr3eRXNmc638");
+
+

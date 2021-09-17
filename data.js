@@ -217,6 +217,50 @@ let distance_matrixu = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
+
+let carx = [
+    [270, 328, 387, 445, 503],
+    [244, 305, 365, 426, 486, 547],
+    [260, 323, 387, 450, 513],
+    [231, 297, 363, 428, 494, 560],
+    [249, 318, 387, 455, 524],
+    [215, 287, 359, 432, 504, 576],
+    [235, 311, 387, 462, 538],
+    [196, 276, 356, 435, 515, 595],
+    [218, 302, 387, 471, 555],
+    [172, 262, 351, 440, 529, 619],
+    [197, 292, 387, 481, 576],
+    [142, 244, 345, 446, 547, 649],
+    [169, 278, 387, 495, 604],
+    [104, 220, 337, 454, 571, 688],
+    [133, 260, 387, 513, 640],
+];
+
+// Facing left: carx
+// Facing right: carx-13
+// Facing up: only cary will be light blue
+// Facinf down: cary and cary y- <4 will be blue
+let cary = [
+    154,
+    180,
+    184,
+    212,
+    219,
+    251,
+    261,
+    297,
+    312,
+    355,
+    377,
+    428,
+    460,
+    523,
+    571,
+];
+
+
+
+
 module.exports = { 
     initial_resource, 
     cur_row, 
@@ -236,5 +280,7 @@ module.exports = {
     distance_matrix, 
     distance_matrixl, 
     distance_matrixr, 
-    distance_matrixu
+    distance_matrixu,
+    carx,
+    cary
 }
