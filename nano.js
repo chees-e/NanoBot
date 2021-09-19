@@ -136,9 +136,51 @@ client.on("messageCreate", async message => {
                 });
             }
 
-            // if (mess)
+            if (message.content.toLowerCase().startsWith("nanoremove ")) {
+                Database.getuser(message.author.id).then(curuser => {
+                    if (!curuser["cooldown"]) {
+                        curuser["cooldown"] = {}
+                    }
 
-            if (message.content.startsWith("nanoextend ")) {
+                    let delname = message.content.slice(11);
+                    let deletedname = false;
+                    let deletedcode = false;
+                    if (curuser["cooldown"][delname]) {
+                        let deletedchar = curuser["cooldown"][delname];
+                        deletedname = deletedchar["name"];
+                        deletedcode = deletedchar["code"];
+                        delete curuser["cooldown"][delname];
+                        Database.upsertuser(message.author.id, curuser);
+                    } else {
+                        for (let char in curuser["cooldown"]) {
+                            if (curuser["cooldown"][char]["code"] == delname) {
+                                let deletedchar = curuser["cooldown"][char];
+                                deletedname = deletedchar["name"];
+                                deletedcode = deletedchar["code"];
+                                delete curuser["cooldown"][char];
+                                Database.upsertuser(message.author.id, curuser);
+                            }
+                        }
+                    }
+
+                    if (deletedname) {
+                        message.channel.send(`Character **${deletedname}** (\`${deletedcode}\`) has successfuly been removed from your cooldown list.`);
+                        return;
+                    } else {
+                        message.channel.send(`Character/code **${delname}** cannot be found in your cooldown list.\n`+
+                                                "Make sure the letters are exact (copying and pasting is reccomended).");
+                        return;
+                    }
+                })
+                return;
+            }
+
+            if (message.content.toLowerCase() == "nanoserver") {
+                message.channel.send("Here is the link to the server:\nhttps://discord.gg/ckBYm4pUHm");
+                return;
+            }
+
+            if (message.content.toLowerCase().startsWith("nanoextend ")) {
                 if (!Solver.admins.includes(message.author.id)) {
                     message.channel.send("You are not permitted to use that command");
                     return;

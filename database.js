@@ -55,11 +55,9 @@ module.exports.updatecache = async (inputstring, link, ring, time, imurl, soluti
     });
 }
 
-module.exports.cleancache = async () => {
-    let currentdate = new Date();
-    let curtime = currentdate.getTime()/1000;
+module.exports.cleancache = async (t) => {
     return new Promise((resolve, reject) => {
-        recentdb.deleteMany({"time": {"$lt": curtime}}).then(result => {
+        recentdb.deleteMany({"time": {"$lt": t}}).then(result => {
             resolve(result);
         }).catch(e => {
             reject(`Database error: ${e}`);         
@@ -101,8 +99,15 @@ module.exports.updatebot = async (sol) => {
     return new Promise((resolve, reject) => {
         botdb.findOne({id: 0}).then(botstat => {
             botstat["usage"] += 1;
-            if (!sol) {
-                user["failed"] += 1;
+            console.log(sol)
+            if (Object.keys(sol).length <= 0) {
+                botstat["failed"] += 1;
+                botdb.updateOne({id: 0}, {"$set": botstat}).then(result => {
+                    resolve(result);
+                }).catch(e => {
+                    reject(`Database error: ${e}`);
+                });
+                return;
             }
             let ap = Math.ceil(sol["resources"].slice(1).reduce((a,b) => a+b) * sol["moves"].length / 25 / 6);
             botstat["ap"] += ap;
@@ -264,6 +269,18 @@ module.exports.getuser = async (id) => {
     });
 }
 
+module.exports.upsertuser = async (id, user) => {
+    id = Long.fromString(id);
+
+    return new Promise((resolve, reject) => {
+        userdb.updateOne({id: id}, {"$set": user}, {"upsert": true}).then(result => {
+            resolve(result);
+        })
+        .catch(e => {
+            reject(`Database error: ${e}`);
+        });
+    });
+}
 module.exports.updateuser = async (message, sol) => {
     return new Promise((resolve, reject) => {
         let uid = Long.fromString(message.author.id);
@@ -298,8 +315,14 @@ module.exports.updateuser = async (message, sol) => {
             }
 
             user["usage"] += 1;
-            if (!sol) {
+            if (Object.keys(sol).length <= 0) {
                 user["failed"] += 1;
+                userdb.updateOne({id: uid}, {"$set": user}, {"upsert": true}).then(result => {
+                    resolve(result);
+                }).catch(e => {
+                    reject(`Database error: ${e}`);
+                })
+                return;
             }
             let ap = Math.ceil(sol["resources"].slice(1).reduce((a,b) => a+b) * sol["moves"].length / 25 / 6);
             user["ap"] += ap;

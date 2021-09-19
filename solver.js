@@ -568,6 +568,10 @@ function comparesolution(oldsol, newsol, need_ring) {
         return true;
     }
 
+    if (need_ring >= 2 && newsol["ring"] && !oldsol["ring"]) {
+        return true
+    }
+
     if (!oldsol["alive"] && newsol["alive"]) {
         return need_ring < 2 || newsol["ring"];
     }
@@ -577,7 +581,7 @@ function comparesolution(oldsol, newsol, need_ring) {
     if (oldsol["airplane"] && !(newsol["airplane"]) && newsol["alive"]) {
         return true
     } else if (!oldsol["airplane"] && newsol["airplane"]) {
-        return false
+        return false 
     } else if (oldsol["airplane"] && newsol["airplane"]) {
         let o1 = Math.ceil(oldsol["resources"][0] / 10) - 1;
         let o2 = Math.ceil(oldsol["resources"][1] / 4) - 1;
@@ -902,7 +906,7 @@ async function startchecks(message, initial_var, starttime, ringflag, uid, imurl
                 })
             }
         }).catch(err => {
-            message.channel.send(`<@${uid}> you don't seem to be subscribed. Join our server to get started.`);
+            message.channel.send(`<@${uid}> you don't seem to be subscribed. Join our server to get started.\nhttps://discord.gg/ckBYm4pUHm`);
             return;
         })
     }
@@ -1012,7 +1016,7 @@ async function startcustomdate(message, initial_var, ringflag, uid) {
         collector.on("collect", async r => {
             switch (r.emoji.name) {
                 case ("✅"): 
-                    message.channel.send("starting");
+                    await message.channel.send("starting");
                     startdate(message, initial_var, Date.now()/1000, ringflag, uid)
                     collector.stop("");
                     break;
@@ -1085,17 +1089,23 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
     let rvembed2_m = getsolutionembed(message, globalv, starttime, starttime2, locations, roadblocks, direction, initial_var, 2, true);
     let rvembed3_m = getsolutionembed(message, globalv, starttime, starttime2, locations, roadblocks, direction, initial_var, 3, true);
     let curr_embed = rvembed1;
+    let curr_content = `<@${uid}> Results`;
 
     // Sending results
     message.reply({content: `<@${uid}> Results`, embeds: [rvembed1]}).then(m => {
         let _solution = [];
-        for (let i = 0; i < bestsolution["moves"].length; i++) {
-            _solution.push(denotations[bestsolution["moves"][i]]);
-        }
-        Database.cleancache();
-        Database.updatecache(inputstrings, m.url, hasring, Date.now()/1000, false, _solution.join(", "));
+        Database.cleancache(Date.now()/1000 - 3600);
 
-        if (!bestsolution["airplane"]) {
+        if (Object.keys(bestsolution).length > 0) {
+            for (let i = 0; i < bestsolution["moves"].length; i++) {
+                _solution.push(denotations[bestsolution["moves"][i]]);
+            }
+            Database.updatecache(inputstrings, m.url, hasring, Date.now()/1000, false, _solution.join(", "));
+        } else {
+            Database.updatecache(inputstrings, m.url, hasring, Date.now()/1000, false, "No solution found");
+        }
+
+        if (Object.keys(bestsolution).length > 0 && !bestsolution["airplane"]) {
             let _solution2 = [];
             let _solution3 = [];
 
@@ -1115,12 +1125,13 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
                 }
             }
 
-            m.react("✈️");
-            validreactions.push("✈️");
-            for (let i = 0; i < globalv["bestsolution_airplane"]["moves"].length; i++) {
-                _solution3.push(denotations[globalv["bestsolution_airplane"]["moves"][i]]);
+            if (Object.keys(globalv["bestsolution_airplane"]).length > 0) {
+                m.react("✈️");
+                validreactions.push("✈️");
+                for (let i = 0; i < globalv["bestsolution_airplane"]["moves"].length; i++) {
+                    _solution3.push(denotations[globalv["bestsolution_airplane"]["moves"][i]]);
+                }
             }
-
             m.react("📱");
             validreactions.push("📱");
 
@@ -1153,20 +1164,22 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
                         break;
                     case("📱"):
                         reformatted = !reformatted;
-                        if (curr_embed_n == 1) curr_embed = reformatted ? rvembed1_m : rvembed1;
-                        if (curr_embed_n == 2) curr_embed = reformatted ? rvembed2_m : rvembed2;
-                        if (curr_embed_n == 3) curr_embed = reformatted ? rvembed3_m : rvembed3;
-
-                        m.edit({content: `<@${uid}> Results (airplane)`, embeds: [curr_embed]});
+                        if (curr_embed_n == 1) {
+                            curr_embed = reformatted ? rvembed1_m : rvembed1;
+                            curr_content = `<@${uid}> Results`;
+                        } else if (curr_embed_n == 2) { 
+                            curr_embed = reformatted ? rvembed2_m : rvembed2;
+                            curr_content = `<@${uid}> Results (no ring)`;
+                        } else if (curr_embed_n == 3) {
+                            curr_embed = reformatted ? rvembed3_m : rvembed3;
+                            curr_content = `<@${uid}> Results (airplane)`;
+                        }
+                        m.edit({content: curr_content, embeds: [curr_embed]});
                         break;
                 }
 
             })
         }
-
-
-
-            
             
     
         try {
@@ -1259,6 +1272,7 @@ function getsolutionembed(message, globalv, starttime, starttime2, locations, ro
 
         // Report
         // AP and AR
+        // TODO checks for moves already made
         let arearned = 0, apearned = Math.ceil(bestsolution["resources"].slice(1).reduce((a, b) => a + b) * bestsolution["moves"].length / 25 / 6);
         try {
             let prear = parseFloat(message.embeds[0].description.split("**")[3]);
@@ -1299,9 +1313,9 @@ function getsolutionembed(message, globalv, starttime, starttime2, locations, ro
 
         // report = report + `Optimization: ${globalv["optimization"]}\n`
         if (bestsolution["airplane"]) {
-            let issafe = "an unsafe";
+            let issafe = "an **unsafe**";
             if (bestsolution["safe"]) {
-                issafe = "a safe"
+                issafe = "a **safe**"
             }
             report = report + `Showing ${issafe} solution to airplane`;
             if (hasring) report = report + "\n(with ring)";
@@ -1355,7 +1369,7 @@ function getsolutionembed(message, globalv, starttime, starttime2, locations, ro
             footertext += "React 👑 for a standard solution. ";
         }
         if (type != 3 && !globalv["bestsolution"]["airplane"]) {
-            footertext += "React ✈️ for a path to airplane. ";
+            footertext += "React ✈️ for a path to airplane (if there exist one). ";
         }
     } else {
         hasring = 0;
@@ -1378,8 +1392,8 @@ function getinterpretedmap2(locations, roadblocks, initial_var) {
     let arrows = {
         "u": "↑",
         "d": "↓",
-        "r": "\u200b → \u200b",
-        "l": "\u200b ← \u200b",
+        "r": "\u200b \u200b → \u200b \u200b",
+        "l": "\u200b \u200b ← \u200b \u200b",
     }
 
     let intersection = ["╬","╦","╠","╔","╣","╗","║","╥","╩","═","╚","╞","╝","╡","╨"," "];
