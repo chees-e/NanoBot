@@ -208,9 +208,10 @@ module.exports.checksubs = async (id) => {
     return new Promise((resolve, reject) => {
         subdb.findOne({id:id}).then(user => {
             if (user) {
-                let now = new Date();
-                let timeremain = (parseInt(user["end"]) - Math.floor(now.getTime()/1000))/3600;
+                let timeremain = (parseInt(user["end"])/3600 - Math.floor( Date.now()/1000)/3600);
+                console.log(timeremain)
                 let rv = {
+                    "end": parseInt(user["end"]),
                     "timeremain": timeremain,
                     "warned": user["warned"]
                 };
@@ -226,23 +227,25 @@ module.exports.checksubs = async (id) => {
 
 module.exports.updatesubs = async (id, endtime, warned, type) => {
     id = Long.fromString(id);
+    endtime = `${endtime}`; 
     return new Promise((resolve, reject) => {
         subdb.findOne({id:id}).then(user => {
             if (user) {
-                if (endtime > 0) user["endtime"] = endtime;
+                if (endtime > 0) user["end"] = endtime;
                 if (type > 0) user["type"] = type;
                 user["warned"] = warned;
             } else {
                 user = {
                     id: id,
-                    endtime: endtime,
+                    end: endtime,
                     warned: warned,
                     type: type
                 }
             }
+            console.log(user)
             subdb.updateOne({id:id}, {"$set": user}, {"upsert": true})
-            .then(user => {
-                resolve(user["id"]);
+            .then(result => {
+                resolve(result);
             }).catch(e => {
                 reject(`Database error: ${e}`);
             })
@@ -344,11 +347,12 @@ module.exports.updateuser = async (message, sol) => {
             }
 
             if (cardname) {
-                let currentdate = new Date();
-                let curtime = currentdate.getTime()/1000;                    
-                let cooldown = curtime + 10 * 60 * 60;
-                if (!sol) {
+                let cooldown =  Date.now()/1000 + 10 * 60 * 60;
+                if (Object.keys(sol).length <= 0) {
                     cooldown += 14 * 60 * 60;
+                }
+                if (!user["cooldown"]) {
+                    user["cooldown"] = {}
                 }
                 user["cooldown"][cardname] = {"name": cardname, "code": cardcode, "time": cooldown}
             }

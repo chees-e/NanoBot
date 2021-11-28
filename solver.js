@@ -5,7 +5,7 @@
 
 const cv = require("opencv4nodejs");
 const jimp = require("jimp")
-const {MessageEmbed, ReactionCollector} = require("discord.js");
+const {MessageEmbed, ReactionCollector, CategoryChannel} = require("discord.js");
 const Database = require("./database.js")
 
 // TODO scoring
@@ -15,8 +15,15 @@ let debug = false;
 let maintenance = false;
 let airplane = false;
 
-let vipchannels = ["858766517369831424", "815120360973926410"];
-let limitlesschannels = ["858766517369831424", "815120360973926410"];
+// let vipchannels = ["858766517369831424", "815120360973926410"];
+// let limitlesschannels = ["858766517369831424", "815120360973926410", "891599528522821683"];
+let vipchannels = ["736062482560450616", "815120360973926410", "871636730774708305"];
+let limitlesschannels = ["736062482560450616", "815120360973926410", "871636730774708305", "866865015348920370", "794739714489843712",
+                        "728983315423690814", "892081084530044949", "859873860844388403", "834156069013684244",  // AMQ
+                        "877100695977869372", //example
+                        "895027723259478036", // chrollo
+                        "802001140082016336" // 496805153832173568's server (759189307407204378) PAYING SERVER
+];
 let announcementchannels = [];
 let logchannel = "884343675432362014";
 let admins = [
@@ -24,7 +31,8 @@ let admins = [
     "321897898470146048",  // natsuki
     "711069244573351966",  // yyk
     "387707421730144257",  // cat
-    "398188915326058496"  // ruya
+    "398188915326058496",  // ruya
+    "166271462175408130", // 84
 ]
 const { 
     initial_resource, 
@@ -41,6 +49,7 @@ const {
     denotations, 
     updates, 
     refill, 
+    negate_direction,
     distance_matrix0,
     distance_matrix, 
     distance_matrixl0, 
@@ -51,10 +60,11 @@ const {
     carx,
     cary
 } = require("./data.js");
+const { parseBitmap } = require("jimp");
 
 // [1] Functions //
 function delay(sec) {
-    return new Promise(resolve => setTimeout(resolve, sec))
+    return new Promise(resolve => setTimeout(resolve, sec*1000))
 }
 
 function matchpixel(img1, img2){
@@ -70,7 +80,23 @@ function matchpixel(img1, img2){
     return res;
 }
 
-function getinput(img_url, message, starttime, uid, pnginput) {
+
+function matchpixel2(baseimg, img1, img2){
+    if (!(img1.rows == img2.rows && img1.cols == img2.cols && img1.channels == img2.channels)) return -1;
+
+    let r = img1.rows, c = img1.cols;
+    let res = 0;
+    for (let i = 0; i < r; i++) {
+        for (let j = 0; j < c; j++){
+            if (baseimg.at(i, j).norm() > 0) {
+                if (JSON.stringify(img1.atRaw(i, j)) == JSON.stringify(img2.atRaw(i, j))) res += 1;
+            }
+        }
+    }
+    return res;
+}
+
+async function getinput(img_url, message, starttime, uid, pnginput) {
     jimp.read(img_url)
     .then(async image => {
         let map = new cv.Mat(image.bitmap.data, image.bitmap.height, image.bitmap.width, cv.CV_8UC4);
@@ -80,10 +106,11 @@ function getinput(img_url, message, starttime, uid, pnginput) {
         if (map.rows != 600 || map.cols != 800) {
             return;
         } else if (JSON.stringify(map.atRaw(130, 700)) != JSON.stringify([0, 255, 0, 255])) {
-
+            if (JSON.stringify(map.atRaw(597, 70)) != JSON.stringify([113, 86, 53, 255])) {
+                return;
+            }
+            console.log("Started moving")
             startedmoving = true
-
-
         }
 
         if (pnginput) {
@@ -93,11 +120,12 @@ function getinput(img_url, message, starttime, uid, pnginput) {
                                     "the bot, the wait times tend to be longer than usual at times. " +
                                     "Please be patient while I solve.";
             }
-            await message.channel.send(mapreceivedstring);
+            await message.channel.send(mapreceivedstring).catch(e => {});
         }
 
         let _location_string = "";
         let radius = 16;
+        let takenbitmap = "";
 
         for (let i = 0; i < locationy.length; i++) {
             for (let j = 0; j < locationx[i].length; j++) {
@@ -106,6 +134,7 @@ function getinput(img_url, message, starttime, uid, pnginput) {
                 let sub_image = map.getRegion(new cv.Rect(currx - radius, curry - radius, 2 * radius, 2 * radius));
                 let highest_res = -1;
                 let highest_location = "0";
+                let taken = "0";
                 for (let k = 0; k < locationlist.length; k++) {
                     let filename = `./locations/${locationlist[k]}.png`;
                     let temp_img = cv.imread(filename, cv.IMREAD_UNCHANGED);
@@ -115,8 +144,27 @@ function getinput(img_url, message, starttime, uid, pnginput) {
                     if (res > highest_res) {
                         highest_res = res;
                         highest_location = locationlist[k];
+                        taken = "0";
+                    }
+                    let temp_img2;
+                    if (startedmoving) {
+                        for (let l = 0; l < 7; l++) {
+                            try {
+                                filename = `./locations_taken3/${locationlist[k]}${l}.png`;
+                                temp_img2 = cv.imread(filename, cv.IMREAD_UNCHANGED);
+                            } catch (e) {
+                                continue;
+                            }
+                            res = matchpixel2(temp_img, temp_img2, sub_image);
+                            if (res > highest_res) {
+                                highest_res = res;
+                                highest_location = locationlist[k];
+                                taken = "1";
+                            }
+                        }
                     }
                 }
+                takenbitmap += taken;
                 _location_string = _location_string + highest_location;
             }
         }
@@ -127,13 +175,14 @@ function getinput(img_url, message, starttime, uid, pnginput) {
             for (let j = 0; j < roadblockx[i].length; j++) {
                 let curry = roadblocky[i];
                 let currx = roadblockx[i][j];
-
-                if (JSON.stringify(map.atRaw(curry, currx)) == JSON.stringify([113, 86, 53, 255])) {
+                console.log(map.at(curry, currx).absdiff(new cv.Vec(113, 86, 53, 255)).norm());
+                if (map.at(curry, currx).absdiff(new cv.Vec(113, 86, 53, 255)).norm()<83) {
                     _roadblock_string = _roadblock_string + "0";
                 } else {
                     _roadblock_string = _roadblock_string + "1";
                 }
             }
+            console.log()
         }
 
         let _direction = "";
@@ -148,11 +197,14 @@ function getinput(img_url, message, starttime, uid, pnginput) {
             locations: _location_string,
             roadblocks: _roadblock_string,
             direction: _direction,
-            inputstrings: _location_string + _roadblock_string + _direction,
+            inputstrings: _location_string + _roadblock_string + _direction + "1",
             startedmoving: false,
+            turn: cur_turn,
             resources: [100, 50, 50, 75, 100],
             car_y: 14,
             car_x: 5,
+            respawn_matrix: JSON.parse(JSON.stringify(respawn_matrix)),
+            urlsolve: pnginput
         }
 
         if (startedmoving) {
@@ -194,8 +246,11 @@ function getinput(img_url, message, starttime, uid, pnginput) {
                 }
             }
 
+            let curr_turn = (100-timeremain)/4 + 1;
             initial_var["resources"] = [gasremain, foodremain, drinksremain, entarremain, timeremain];
-
+            initial_var["turn"] = curr_turn;
+            initial_var["inputstrings"] = _location_string + _roadblock_string + _direction + curr_turn;
+            console.log(initial_var)
             outerloop:
             for (let i = 0; i < cary.length; i++) {
                 for (let j = 0; j < carx[i].length; j++) {
@@ -226,14 +281,44 @@ function getinput(img_url, message, starttime, uid, pnginput) {
                     }
                 }
             }
+
+            if (parseInt(takenbitmap) > 0) {
+                // TODO: kinda repetive work, try to avoid this
+                try {
+                    let roadblocks = [];
+                    for (let i = 0; i < 13; i++) {
+                        if (i % 2 == 0) {
+                            roadblocks.push(_roadblock_string.slice((Math.floor(i / 2)) * 9,(Math.floor(i / 2)) * 9 + 4).split("").concat(["0"]));
+                        } else {
+                            roadblocks.push(_roadblock_string.slice((Math.floor(i / 2)) * 9 + 4, (Math.floor(i / 2 + 1)) * 9).split("").concat(["0"]));
+                        }
+                    }
+                    roadblocks.push(["0", "0", "0", "0", "0"]);
+                
+                    let curr_distance = getdistance(initial_var["car_y"], initial_var["car_x"], negate_direction[initial_var["direction"]], roadblocks, true);
+                    for (let i = 0; i < locationy.length; i++) {
+                        for (let j = 0; j < locationx[i].length; j++) {
+                            let curr_index = i*locationx[i].length+j;
+                            if (takenbitmap[curr_index] == "1") {
+                                if (["f", "1", "2"].includes(_location_string[curr_index])) {
+                                    initial_var["respawn_matrix"][i][j] = 25;
+                                } else {
+                                    initial_var["respawn_matrix"][i][j] = curr_turn - curr_distance[i][j] + 9;
+                                }
+                            }
+                        }
+                    }
+                } catch(e) {
+                    console.log(e)
+                }
+                console.log(takenbitmap)
+                console.log(initial_var)
+            }
         }
 
-        console.log(_location_string + _roadblock_string + _direction)
-
-
-        if ((_location_string + _roadblock_string + _direction).length != 94) {
-            return;
-        }
+        // if (initial_var["inputstrings"].length != 95) {
+        //     return;
+        // }
 
         startchecks(message, initial_var, starttime, 1, uid, img_url);
     })
@@ -533,6 +618,7 @@ function createsolution(moves, resources, alive, iteration) {
         _resources[1] -= 4;
         _resources[2] -= 6;
         _resources[3] -= 8;
+        timeremain -= 4;
 
         if (_resources[1] < 0) {
             _resources[1] = 0;
@@ -558,7 +644,7 @@ function createsolution(moves, resources, alive, iteration) {
         "time": 0,
         "timeremain": timeremain,
         "remainingmoves": [Math.ceil(_resources[0] / 10) - 1, Math.ceil(_resources[1] / 4) - 1, Math.ceil(_resources[2] / 6) - 1, Math.ceil(_resources[3] / 8) - 1],
-        "safe": Math.min(Math.ceil(_resources[0] / 10) - 1, Math.ceil(_resources[1] / 4) - 1, Math.ceil(_resources[2] / 6) - 1, Math.ceil(_resources[3] / 8) - 1) + moves.length >= 25    
+        "safe": Math.min(Math.ceil(_resources[0] / 10) - 1, Math.ceil(_resources[1] / 4) - 1, Math.ceil(_resources[2] / 6) - 1, Math.ceil(_resources[3] / 8) - 1) + (25-timeremain/4) >= 25    
     };
     return rv;
 }
@@ -595,25 +681,25 @@ function comparesolution(oldsol, newsol, need_ring) {
         oldscore = Math.min(o1, o2, o3, o4) + (o1 + o2 + o3 + o4) / 100;
         newscore = Math.min(n1, n2, n3, n4) + (n1 + n2 + n3 + n4) / 100;
 
-        if (newscore + newsol["moves"].length >= 25) {
-            if (oldscore + oldsol["moves"].length >= 25) {
-                return oldsol["moves"].length > newsol["moves"].length;
+        if (newscore + (25-newsol["timeremain"]/4) >= 25) {
+            if (oldscore + (25-oldsol["timeremain"]/4) >= 25) {
+                return newsol["timeremain"] > oldsol["timeremain"];
             } else {
                 return true
             }
         } else {
-            if (oldscore + oldsol["moves"].length >= 25) {
+            if (oldscore + (25-oldsol["timeremain"]/4) >= 25) {
                 return false;
             } else {
                 return newscore > oldscore;
             }
         }
     } else {
-        oldscore = (oldsol["resources"].slice(1).reduce((a, b) => a + b)) * (oldsol["moves"].length)/25;
+        oldscore = (oldsol["resources"].slice(1).reduce((a, b) => a + b)) * (100-oldsol["timeremain"])/100;
         if (oldsol["shopping"]) oldscore += 180;
         if (oldsol["ring"] && need_ring > 0) oldscore += 1000;
 
-        newscore = (newsol["resources"].slice(1).reduce((a, b) => a + b)) * (newsol["moves"].length)/25;
+        newscore = (newsol["resources"].slice(1).reduce((a, b) => a + b)) * (100-newsol["timeremain"])/100;
         if (newsol["shopping"]) newscore += 180;
         if (newsol["ring"] && need_ring > 0) newscore += 1000;
     }
@@ -669,6 +755,9 @@ async function date(turn, resources, respawn, r, c, d, moves, globalv) {
     if (iterations >= max_iteration) return;
     globalv["iterations"] += 1;
 
+    if (iterations % 69420 == 0) {
+        await delay(0.001)
+    } 
     for (let i = 0; i < 4; i++) {
         if (resources[i] <= 0) return;
     }
@@ -856,63 +945,67 @@ async function date(turn, resources, respawn, r, c, d, moves, globalv) {
 async function startchecks(message, initial_var, starttime, ringflag, uid, imurl) {
     let inputstrings = initial_var["inputstrings"];
     if (maintenance && uid != "226588531772882945") {
-        message.channel.send("Nano is currently under maintenance, please try again later.");
+        message.channel.send("Nano is currently under maintenance, please try again later.").catch(e => {});
         return;
     }
 
     if (limitlesschannels.includes(message.channel.id)) {
-        if (initial_var["startedmoving"]) {
-            startcustomdate(message, initial_var, ringflag, uid);
+        Database.checkcache(inputstrings).then(recent => {
+            rerunmessage(message, initial_var, recent, ringflag, uid, imurl);
             return;
-        } else {
-            Database.checkcache(inputstrings).then(recent => {
-                rerunmessage(message, initial_var, recent, ringflag, uid);
-                return;
-            })
-            .catch(e => {
-                console.log(e)
-                Database.updatecache(inputstrings, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", false, Date.now()/1000, imurl, "lol I am still calculating the first one").then(result => {console.log(result)});
+        })
+        .catch(e => {
+            console.log(e)
+            Database.updatecache(inputstrings, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", false, Date.now()/1000, imurl, "lol I am still calculating the first one").then(result => {console.log(result)});
+            
+            if (initial_var["startedmoving"]) {
+                startcustomdate(message, initial_var, ringflag, uid, imurl);
+            } else {
                 startdate(message, initial_var, starttime, ringflag, uid);
-                return;
-            })
-        }
+            }
+            return;
+        })
+        
     } else {
         Database.checksubs(uid).then(user => {
             if (user["timeremain"] <= 0) {
                 if (user["warned"]) {
-                    message.channel.send(`<@${uid}> your subscription has expired. Please ask pineappl or a mod to start a new subscription.`);
+                    message.channel.send(`<@${uid}> your subscription has expired. Please ask pineappl or a mod to start a new subscription.`).catch(e => {});
                 } else {
-                    message.channel.send(`<@${uid}> your subscription has expired. Please ask <@226588531772882945>  or <@&815511257062965259> to start a new subscription.`);
+                    message.channel.send(`<@${uid}> your subscription has expired. Please ask <@226588531772882945>  or <@&815511257062965259> to start a new subscription.`).catch(e => {});
                     Database.updatesubs(uid, -1, true, 1);
                 }
                 return;
             } else if (user["timeremain"] <= 12) {
-                message.channel.send(`Friendly reminder that your subscription ends in less ${Math.round(user['timeremain'])} hours.`);
+                message.channel.send(`Friendly reminder that your subscription ends in less ${Math.round(user['timeremain'])} hours.`).catch(e => {});
             }
 
-            if (initial_var["startedmoving"]) {
-                startcustomdate(message, initial_var, ringflag, uid);
+
+            Database.checkcache(inputstrings).then(recent => {
+                rerunmessage(message, initial_var, recent, ringflag, uid, imurl);
                 return;
-            } else {
-                Database.checkcache(inputstrings).then(recent => {
-                    rerunmessage(message, initial_var, recent, ringflag, uid);
-                    return;
-                })
-                .catch(e => {
-                    console.log(e)
-                    Database.updatecache(inputstrings, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", false,  Date.now()/1000, imurl, "lol I am still calculating the first one").then(result => {console.log(result)});
+            })
+            .catch(e => {
+                console.log(e)
+
+                Database.updatecache(inputstrings, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", false,  Date.now()/1000, imurl, "lol I am still calculating the first one").then(result => {console.log(result)});
+
+                if (initial_var["startedmoving"]) {
+                    startcustomdate(message, initial_var, ringflag, uid, imurl);
+                } else {
                     startdate(message, initial_var, starttime, ringflag, uid);
-                    return;
-                })
-            }
+                }
+                return;
+            })
+            
         }).catch(err => {
-            message.channel.send(`<@${uid}> you don't seem to be subscribed. Join our server to get started.\nhttps://discord.gg/ckBYm4pUHm`);
+            message.channel.send(`<@${uid}> you don't seem to be subscribed. Join our server to get started.\nhttps://discord.gg/ckBYm4pUHm.\nThe subscription fee is really there just keep our bot small enough that it can give you a solution that is both good and fast.`);
             return;
         })
     }
 }
 
-async function rerunmessage(message, initial_var, cached, ringflag, uid){
+async function rerunmessage(message, initial_var, cached, ringflag, uid, imurl){
     message.channel.send({embeds: [
         new MessageEmbed()
         .setTitle("Map processed recently")
@@ -921,22 +1014,27 @@ async function rerunmessage(message, initial_var, cached, ringflag, uid){
         `(${cached['link']})`)
         .setFooter(`React 🔁 to rerun`)]
     }).then(m => {
-        m.react("🔁");
+        m.react("🔁").catch(e => {});
         const filter = (reaction, user) => {
             return ['🔁'].includes(reaction.emoji.name) && user.id == uid;
         };
         m.awaitReactions({filter, max: 1, time: 60000, errors: ['time']}).then(async collected => {
-            await message.channel.send("rerunning");
-            startdate(message, initial_var,  Date.now()/1000, ringflag, uid);
+            await message.channel.send("rerunning").catch(e => {});
+
+            if (initial_var["startedmoving"]) {
+                startcustomdate(message, initial_var, ringflag, uid, imurl);
+            } else {
+                startdate(message, initial_var, Date.now()/1000, ringflag, uid);
+            }
 
         }).catch(e => {
             console.log(e)
             return;
         })
-    });
+    }).catch(e => {});
 }
 
-async function startcustomdate(message, initial_var, ringflag, uid) {
+async function startcustomdate(message, initial_var, ringflag, uid, imurl) {
     let location_string = initial_var["locations"];
     let roadblock_string = initial_var["roadblocks"];
 
@@ -976,11 +1074,11 @@ async function startcustomdate(message, initial_var, ringflag, uid) {
 
     let rvembed = new MessageEmbed()
     .setTitle("Date already stated")
-    .setDescription("Here is the interpreted map. If this is a correct interpretation, react ✅ to continue.\n\nWarning:\nNano cannot get an accurate interpretation if some locations are taken already (I'm still working on that).");
+    .setDescription("Here is the interpreted map. If this is a correct interpretation, react ✅ to continue. If not, react ❌ to report this error.\n\nWarning:\nRecognizing locations that are taken are still incomplete, so do double check.");
     
     let rvembed_m = new MessageEmbed()
     .setTitle("Date already stated")
-    .setDescription("Here is the interpreted map. If this is a correct interpretation, react ✅ to continue.\n\nWarning:\nNano cannot get an accurate interpretation if some locations are taken already (I'm still working on that).");
+    .setDescription("Here is the interpreted map. If this is a correct interpretation, react ✅ to continue. If not, react ❌ to report this error.\n\nWarning:\nRecognizing locations that are taken are still incomplete, so do double check.");
     
     if (poterr.length > 0) {
         rvembed.addField("⚠️ Potential Error:", `Missing: ${poterr.join(", ")}`, false);
@@ -1003,23 +1101,30 @@ async function startcustomdate(message, initial_var, ringflag, uid) {
     let curr_embed = rvembed;
 
     message.reply({embeds:[rvembed]}).then(m => {
-        m.react("✅");
-        m.react("📱");
+        m.react("✅").catch(e => {});       
+        m.react("❌").catch(e => {});
+        m.react("📱").catch(e => {});
 
         let reformatted = false
 
         const filter = (reaction, user) => {
-            return ["✅", "📱"].includes(reaction.emoji.name) && user.id == uid;
+            return ["✅", "❌", "📱"].includes(reaction.emoji.name) && user.id == uid;
         };
         
         const collector = m.createReactionCollector({filter, time: 60000})
         collector.on("collect", async r => {
             switch (r.emoji.name) {
                 case ("✅"): 
-                    await message.channel.send("starting");
+                    await message.channel.send("starting").catch(e => {});
                     startdate(message, initial_var, Date.now()/1000, ringflag, uid)
                     collector.stop("");
                     break;
+                case("❌"):
+                    message.client.channels.fetch(logchannel).then(curchannel => {
+                        curchannel.send(`<@226588531772882945> Already moved issue: ${imurl}\n${m.url}`).catch(e => {});
+                        message.channel.send("This error has been reported. Thank you.").catch(e => {});
+                    });
+                    return;
                 case("📱"):
                     reformatted = !reformatted;
                     curr_embed = reformatted ? rvembed_m : rvembed;
@@ -1027,7 +1132,7 @@ async function startcustomdate(message, initial_var, ringflag, uid) {
                     break;
             }
         });
-    })
+    }).catch(e => {});
 }
 
 async function startdate(message, initial_var, starttime, ringflag, uid) {
@@ -1059,6 +1164,13 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
     let uldr = getuldr(locations, roadblocks);
     let ul_req = uldr[0], dr_req = uldr[1], ul_moves = uldr[2], dr_moves = uldr[3];
 
+    let inducestr = "";
+    try {
+        inducestr = message.content.split(" ")[2];
+    } catch {
+
+    }
+
     let globalv = {
         "locations": locations,
         "roadblocks": roadblocks,
@@ -1072,15 +1184,15 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
         "dr_req": dr_req,
         "ul_moves": ul_moves,
         "dr_moves": dr_moves,
-        "optimization": 0    
+        "optimization": 0,
+        "inducestr": inducestr    
     }
 
     let starttime2 = Date.now()/1000;
-
-    await date(cur_turn, initial_var["resources"], respawn_matrix, initial_var["car_y"], initial_var["car_x"], direction, [], globalv);
+    await date(initial_var["turn"], initial_var["resources"], initial_var["respawn_matrix"], initial_var["car_y"], initial_var["car_x"], direction, [], globalv);
 
     let bestsolution = globalv["bestsolution"];
-    let hasring = location_string.includes("1") && bestsolution["moves"].includes("1");
+    let hasring = location_string.includes("1") && Object.keys(bestsolution).length > 0 && bestsolution["moves"].includes("1");
 
     let rvembed1 = getsolutionembed(message, globalv, starttime, starttime2, locations, roadblocks, direction, initial_var, 1, false);
     let rvembed2 = getsolutionembed(message, globalv, starttime, starttime2, locations, roadblocks, direction, initial_var, 2, false);
@@ -1114,11 +1226,11 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
             let reformatted = false;
             let curr_embed_n = 1;
 
-            m.react("👑");
+            m.react("👑").catch(e => {});
             validreactions.push("👑");
             
             if (hasring) {
-                m.react("❌");
+                m.react("❌").catch(e => {});
                 validreactions.push("❌");
                 for (let i = 0; i < globalv["bestsolution_nr"]["moves"].length; i++) {
                     _solution2.push(denotations[globalv["bestsolution_nr"]["moves"][i]]);
@@ -1126,13 +1238,13 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
             }
 
             if (Object.keys(globalv["bestsolution_airplane"]).length > 0) {
-                m.react("✈️");
+                m.react("✈️").catch(e => {});
                 validreactions.push("✈️");
                 for (let i = 0; i < globalv["bestsolution_airplane"]["moves"].length; i++) {
                     _solution3.push(denotations[globalv["bestsolution_airplane"]["moves"][i]]);
                 }
             }
-            m.react("📱");
+            m.react("📱").catch(e => {});
             validreactions.push("📱");
 
             const filter = (reaction, user) => {
@@ -1187,16 +1299,16 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
                 message.client.channels.fetch(logchannel).then(curchannel => {
                     message.client.users.fetch(uid).then(tempuser => {
                         let currentdate = new Date();
-                        curchannel.send(`\`\`\`${tempuser.username} (${tempuser.id}) in channel ${message.channel.name} `+
+                        curchannel.send(`\`\`\`[Solve request] ${tempuser.username} (${tempuser.id}) in channel ${message.channel.name} `+
                                             `(${message.channel.id}) in guild ${message.guild.name} (${message.guild.id}) ` +
-                                            `at ${currentdate.toString()}\`\`\``);
+                                            `at ${currentdate.toString()} (URL solve: ${initial_var['urlsolve']})\`\`\``).catch(e => {});
                         if (message.embeds[0].image) {
-                            curchannel.send(message.embeds[0].image.url);
+                            curchannel.send(message.embeds[0].image.url).catch(e => {});
                         } else {
-                            curchannel.send(message.embeds[0].url);
+                            curchannel.send(message.embeds[0].url).catch(e => {});
                         }
-                        curchannel.send(m.url);
-                        curchannel.send({embeds:[rvembed1]});
+                        curchannel.send(m.url).catch(e => {});
+                        curchannel.send({embeds:[rvembed1]}).catch(e => {});
                     })
                 })
             }).catch(err => {
@@ -1206,13 +1318,11 @@ async function startdate(message, initial_var, starttime, ringflag, uid) {
             console.log(err)
 
         };
-    });
+    }).catch(e => {});
 
     Database.updatebot(bestsolution);
     Database.updateserver(message.guild.id);
     Database.updateuser(message, bestsolution);
-
-
 }
 
 function getsolutionembed(message, globalv, starttime, starttime2, locations, roadblocks, direction, initial_var, type, reformat) {
@@ -1273,7 +1383,7 @@ function getsolutionembed(message, globalv, starttime, starttime2, locations, ro
         // Report
         // AP and AR
         // TODO checks for moves already made
-        let arearned = 0, apearned = Math.ceil(bestsolution["resources"].slice(1).reduce((a, b) => a + b) * bestsolution["moves"].length / 25 / 6);
+        let arearned = 0, apearned = Math.ceil(bestsolution["resources"].slice(1).reduce((a, b) => a + b) * (100 - bestsolution["timeremain"]) / 100 / 6);
         try {
             let prear = parseFloat(message.embeds[0].description.split("**")[3]);
             let prearunscaled = prear;
@@ -1302,7 +1412,7 @@ function getsolutionembed(message, globalv, starttime, starttime2, locations, ro
         } else {
             report = `AP Earned: ${apearned}\n`;
             if (arearned > 0) {
-                report = report + `AR Earned: ${Math.round(arearned * 100) / 100}\n`;
+                report = report + `AR Earned: ${Math.round(arearned * 100) / 100} ± 0.01\n`;
             }
         }
         report = report + `Preparation duration: ${dttext2}\n`;
@@ -1313,11 +1423,11 @@ function getsolutionembed(message, globalv, starttime, starttime2, locations, ro
 
         // report = report + `Optimization: ${globalv["optimization"]}\n`
         if (bestsolution["airplane"]) {
-            let issafe = "an **unsafe**";
             if (bestsolution["safe"]) {
-                issafe = "a **safe**"
+                report = report + `Showing an **safe** solution to airplane`;
+            } else {
+                report = report + `⚠️Showing an **unsafe** solution to airplane`;
             }
-            report = report + `Showing ${issafe} solution to airplane`;
             if (hasring) report = report + "\n(with ring)";
 
         } else if (globalv['iterations'] < max_iteration) {
@@ -1549,7 +1659,7 @@ module.exports.limitlesschannels = limitlesschannels;
 module.exports.logchannel = logchannel;
 module.exports.admins = admins;
 
-module.exports.run = async (client, message) => {
+module.exports.run = async (client, message, args) => {
     let starttime = Date.now()/1000;
 
     let imurl = ""
@@ -1573,7 +1683,9 @@ module.exports.run = async (client, message) => {
                                                 "the bot, the wait times tend to be longer than usual at times. " +
                                                 "Please be patient while I solve.";
                         }
-                        message.channel.send(mapreceivedstring);
+                        message.channel.send(mapreceivedstring).catch(e => {});
+                    } else {
+                        return;
                     }
                 } catch (e) {
                     console.log(e);
@@ -1581,10 +1693,10 @@ module.exports.run = async (client, message) => {
                 }
             } else {
                 // link
-                if (vipchannels.includes(message.channel.id)) {
-                    imurl = mapembed.url;
-                    pnginput = true
-                }
+                // if (vipchannels.includes(message.channel.id)) {
+                imurl = mapembed.url;
+                pnginput = true
+                // }
             }
         } else if (message.attachments.length > 0) {
             if (vipchannels.includes(message.channel.id)) {

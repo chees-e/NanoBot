@@ -22,14 +22,14 @@ let locationx = [
     [197, 298, 400, 501, 602],
     [165, 282, 400, 517, 634]
 ];
-let roadblocky = [184, 197, 215, 232, 256, 274, 300, 325, 358, 388, 432, 470, 527];
+let roadblocky = [176, 197, 215, 232, 256, 274, 300, 325, 358, 388, 432, 470, 527]; // 184->175
 let roadblockx = [
-    [306, 366, 434, 494],
+    [308, 367, 433, 492], //old: [306, 366, 434, 494],
     [293, 355, 382, 444, 507],
     [298, 363, 436, 502],
     [282, 352, 381, 449, 517],
     [287, 360, 440, 513],
-    [271, 346, 378, 452, 528],
+    [265, 346, 378, 452, 534], //271 => 265, 526 => 534
     [276, 356, 444, 524],
     [257, 341, 375, 459, 543],
     [261, 350, 449, 538],
@@ -111,6 +111,12 @@ let updates = {
     "r": [-10, -4, -6, -8, -4]
 };
 let refill = ["gha", "tpswha", "sjcnwha", "nmwbfha"];
+let negate_direction = {
+    "u": "d",
+    "d": "u",
+    "l": "r",
+    "r": "l"
+}
 let distance_matrix0 = [
     [13, 12, 11, 10, 9, 8, 7, 6, 6, 7, 8, 9, 10, 11, 12, 13],
     [12, 11, 10, 9, 8, 7, 6, 5, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -258,9 +264,6 @@ let cary = [
     571,
 ];
 
-
-
-
 module.exports = { 
     initial_resource, 
     cur_row, 
@@ -276,10 +279,13 @@ module.exports = {
     denotations, 
     updates, 
     refill, 
+    negate_direction,
     distance_matrix0,
     distance_matrix, 
-    distance_matrixl, 
-    distance_matrixr, 
+    distance_matrixl0, 
+    distance_matrixl,
+    distance_matrixr0, 
+    distance_matrixr,
     distance_matrixu,
     carx,
     cary
